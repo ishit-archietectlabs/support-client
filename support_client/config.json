@@ -1,6 +1,6 @@
 {
   "name": "Support Client",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "slug": "support_client",
   "description": "Customer support request panel — text and call support buttons for remote HA sites",
   "url": "https://github.com/ishit-archietectlabs/support-client",
@@ -10,6 +10,7 @@
     "armv7",
     "i386"
   ],
+  "init": false,
   "startup": "services",
   "boot": "auto",
   "ingress": true,
