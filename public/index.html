@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Customer Support — Request text or call support">
+  <title>Get Support</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ========== MAIN SCREEN: Two Buttons ========== -->
+  <div id="screen-home" class="screen active">
+    <div class="home-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <span class="material-icons-round">support_agent</span>
+        </div>
+        <h1>Need Help?</h1>
+        <p class="brand-sub">Choose how you'd like to get support</p>
+        <p class="site-label" id="site-name-label">Remote Site</p>
+      </div>
+
+      <div class="support-buttons">
+        <button id="btn-text-support" class="support-btn text-support">
+          <div class="btn-glow text-glow"></div>
+          <div class="btn-icon-wrap">
+            <span class="material-icons-round">chat</span>
+          </div>
+          <div class="btn-content">
+            <span class="btn-title">Text Support</span>
+            <span class="btn-desc">Chat with a support agent</span>
+          </div>
+          <span class="material-icons-round btn-arrow">arrow_forward</span>
+        </button>
+
+        <button id="btn-call-support" class="support-btn call-support">
+          <div class="btn-glow call-glow"></div>
+          <div class="btn-icon-wrap">
+            <span class="material-icons-round">call</span>
+          </div>
+          <div class="btn-content">
+            <span class="btn-title">Call Support</span>
+            <span class="btn-desc">Voice call with a support agent</span>
+          </div>
+          <span class="material-icons-round btn-arrow">arrow_forward</span>
+        </button>
+      </div>
+
+      <div class="status-bar">
+        <div id="home-connection" class="status-pill disconnected">
+          <span class="status-dot"></span>
+          <span>Connecting…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TEXT CHAT SCREEN ========== -->
+  <div id="screen-chat" class="screen">
+    <div class="screen-header">
+      <button id="btn-chat-back" class="btn-back">
+        <span class="material-icons-round">arrow_back</span>
+      </button>
+      <div class="header-info">
+        <h2>Text Support</h2>
+        <span id="chat-status" class="status-text">Connecting…</span>
+      </div>
+      <div id="chat-connection-dot" class="status-dot-sm disconnected"></div>
+    </div>
+
+    <div id="chat-messages" class="scrollable"></div>
+
+    <div id="initial-message-area">
+      <p class="initial-prompt">Describe your issue to get started:</p>
+      <textarea id="initial-message" rows="3" placeholder="Type your message here…"></textarea>
+      <button id="btn-send-initial" class="btn btn-primary btn-full">
+        <span class="material-icons-round">send</span>
+        Send & Connect
+      </button>
+    </div>
+
+    <div id="chat-input-area" class="hidden">
+      <input type="text" id="chat-input" placeholder="Type a message…" autocomplete="off">
+      <button id="btn-send-chat" class="btn btn-primary">
+        <span class="material-icons-round">send</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== CALL SCREEN ========== -->
+  <div id="screen-call" class="screen">
+    <div class="screen-header">
+      <button id="btn-call-back" class="btn-back">
+        <span class="material-icons-round">arrow_back</span>
+      </button>
+      <div class="header-info">
+        <h2>Voice Support</h2>
+        <span id="call-sip-status" class="status-text">Initializing…</span>
+      </div>
+    </div>
+
+    <div class="call-container">
+      <!-- Calling / Ringing State -->
+      <div id="call-dialing" class="call-state">
+        <div class="call-visual">
+          <div class="call-avatar pulse-ring">
+            <span class="material-icons-round">support_agent</span>
+          </div>
+          <h3>Calling Support…</h3>
+          <p class="call-sub">Please wait while we connect you</p>
+        </div>
+        <div class="call-actions">
+          <button id="btn-cancel-call" class="btn-call reject">
+            <span class="material-icons-round">call_end</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Call State -->
+      <div id="call-active" class="call-state hidden">
+        <div class="call-visual">
+          <div class="call-avatar connected-ring">
+            <span class="material-icons-round">support_agent</span>
+          </div>
+          <h3>Connected</h3>
+          <p class="call-sub" id="call-timer">00:00</p>
+        </div>
+        <div class="call-actions">
+          <button id="btn-call-mute" class="btn-call mute-btn">
+            <span class="material-icons-round">mic</span>
+            <span class="action-label">Mute</span>
+          </button>
+          <button id="btn-call-hangup" class="btn-call reject">
+            <span class="material-icons-round">call_end</span>
+            <span class="action-label">End</span>
+          </button>
+          <button id="btn-call-speaker" class="btn-call speaker-btn">
+            <span class="material-icons-round">volume_up</span>
+            <span class="action-label">Speaker</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Call Ended State -->
+      <div id="call-ended" class="call-state hidden">
+        <div class="call-visual">
+          <div class="call-avatar ended">
+            <span class="material-icons-round">call_end</span>
+          </div>
+          <h3>Call Ended</h3>
+          <p class="call-sub" id="call-duration-final">Duration: 00:00</p>
+        </div>
+        <div class="call-actions">
+          <button id="btn-call-retry" class="btn btn-primary btn-full">
+            <span class="material-icons-round">refresh</span>
+            Call Again
+          </button>
+          <button id="btn-call-home" class="btn btn-ghost btn-full">
+            <span class="material-icons-round">home</span>
+            Back to Home
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio -->
+  <audio id="remote-audio" autoplay></audio>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="jssip.bundle.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
