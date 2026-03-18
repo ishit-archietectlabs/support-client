@@ -1,15 +1,17 @@
-#!/usr/bin/env bash
+#!/usr/bin/with-contenv bashio
 set -e
 
-CONFIG_PATH=/data/options.json
+# ============================================================
+# Support Client — Entrypoint
+# ============================================================
 
-export CENTRAL_URL=$(jq -r '.central_url' $CONFIG_PATH)
-export SITE_NAME=$(jq -r '.site_name' $CONFIG_PATH)
-export SIP_EXTENSION=$(jq -r '.sip_extension' $CONFIG_PATH)
-export SIP_PASSWORD=$(jq -r '.sip_password' $CONFIG_PATH)
-export ASTERISK_WS_URL=$(jq -r '.asterisk_ws_url' $CONFIG_PATH)
-export SIP_DOMAIN=$(jq -r '.sip_domain' $CONFIG_PATH)
+export CENTRAL_URL=$(bashio::config 'central_url')
+export SITE_NAME=$(bashio::config 'site_name')
+export SIP_EXTENSION=$(bashio::config 'sip_extension')
+export SIP_PASSWORD=$(bashio::config 'sip_password')
+export ASTERISK_WS_URL=$(bashio::config 'asterisk_ws_url')
+export SIP_DOMAIN=$(bashio::config 'sip_domain')
 
-echo "[INFO] Starting Support Client - Site: $SITE_NAME"
+bashio::log.info "Starting Support Client - Site: ${SITE_NAME}"
 cd /app
 exec node server.js
