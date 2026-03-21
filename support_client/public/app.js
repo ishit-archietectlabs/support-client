@@ -1,6 +1,6 @@
 // =============================================================
 // Support Client — Client App
-// Two-button support: Text chat via Socket.IO, Voice via JsSIP
+// Text chat via Socket.IO
 // =============================================================
 
 (function () {
@@ -10,12 +10,7 @@
   const state = {
     config: {},
     socket: null,
-    requestId: null,
-    ua: null,
-    currentSession: null,
-    isMuted: false,
-    callTimer: null,
-    callSeconds: 0
+    requestId: null
   };
 
   // ---------- DOM ----------
@@ -25,11 +20,9 @@
     // Screens
     screenHome: $('#screen-home'),
     screenChat: $('#screen-chat'),
-    screenCall: $('#screen-call'),
     // Home
     siteNameLabel: $('#site-name-label'),
     btnTextSupport: $('#btn-text-support'),
-    btnCallSupport: $('#btn-call-support'),
     homeConnection: $('#home-connection'),
     // Chat
     btnChatBack: $('#btn-chat-back'),
@@ -42,21 +35,6 @@
     chatInputArea: $('#chat-input-area'),
     chatInput: $('#chat-input'),
     btnSendChat: $('#btn-send-chat'),
-    // Call
-    btnCallBack: $('#btn-call-back'),
-    callSipStatus: $('#call-sip-status'),
-    callDialing: $('#call-dialing'),
-    callActive: $('#call-active'),
-    callEnded: $('#call-ended'),
-    btnCancelCall: $('#btn-cancel-call'),
-    callTimerEl: $('#call-timer'),
-    btnCallMute: $('#btn-call-mute'),
-    btnCallHangup: $('#btn-call-hangup'),
-    btnCallSpeaker: $('#btn-call-speaker'),
-    callDurationFinal: $('#call-duration-final'),
-    btnCallRetry: $('#btn-call-retry'),
-    btnCallHome: $('#btn-call-home'),
-    remoteAudio: $('#remote-audio'),
     toastContainer: $('#toast-container')
   };
 
@@ -74,7 +52,6 @@
       els.siteNameLabel.textContent = state.config.site_name || 'Remote Site';
     } catch (e) {
       console.error('Failed to load config:', e);
-      showToast('error', 'Failed to load configuration');
     }
   }
 
@@ -89,13 +66,10 @@
 
     state.socket = io(centralUrl, {
       transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000
+      reconnection: true
     });
 
     state.socket.on('connect', () => {
-      console.log('[SOCKET] Connected to central');
       updateHomeConnection(true);
       updateChatConnection(true);
 
@@ -116,12 +90,6 @@
       if (data.request_id === state.requestId && data.sender !== 'client') {
         appendChatMessage(data);
       }
-    });
-
-    state.socket.on('connect_error', (err) => {
-      console.error('[SOCKET] Connection error:', err.message);
-      updateHomeConnection(false);
-      updateChatConnection(false);
     });
   }
 
@@ -154,8 +122,7 @@
         body: JSON.stringify({
           site_name: state.config.site_name,
           type: 'text',
-          message: message,
-          sip_extension: state.config.sip_extension
+          message: message
         })
       });
 
@@ -226,263 +193,20 @@
     els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
   }
 
-  // ---------- CALL SUPPORT ----------
-  els.btnCallSupport.addEventListener('click', async () => {
-    showScreen('screen-call');
-    showCallState('dialing');
-
-    // Create a call request on central
-    try {
-      const centralUrl = state.config.central_url || 'http://localhost:3000';
-      const res = await fetch(`${centralUrl}/api/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          site_name: state.config.site_name,
-          type: 'call',
-          message: 'Voice call request',
-          sip_extension: state.config.sip_extension,
-          caller_id: state.config.site_name
-        })
-      });
-
-      const data = await res.json();
-      state.requestId = data.request_id;
-
-      connectSocket(() => {
-        if (state.socket) {
-          state.socket.emit('call-initiated', {
-            request_id: state.requestId,
-            site_name: state.config.site_name,
-            sip_extension: state.config.sip_extension,
-            caller_id: state.config.site_name
-          });
-        }
-      });
-
-    } catch (e) {
-      console.error('Failed to create call request:', e);
-    }
-
-    // Initiate SIP call via JsSIP
-    initSIPAndCall();
-  });
-
-  function initSIPAndCall() {
-    const { asterisk_ws_url, sip_extension, sip_password, sip_domain } = state.config;
-
-    if (!asterisk_ws_url || !sip_extension) {
-      showToast('error', 'SIP configuration missing');
-      showCallState('ended');
-      return;
-    }
-
-    try {
-      const socketJsSIP = new JsSIP.WebSocketInterface(asterisk_ws_url);
-
-      const configuration = {
-        sockets: [socketJsSIP],
-        uri: `sip:${sip_extension}@${sip_domain}`,
-        password: sip_password,
-        display_name: state.config.site_name || 'Support Client',
-        register: true,
-        session_timers: false
-      };
-
-      state.ua = new JsSIP.UA(configuration);
-
-      els.callSipStatus.textContent = 'Connecting to server…';
-
-      state.ua.on('registered', () => {
-        els.callSipStatus.textContent = 'Registered — Calling agent…';
-        makeCall();
-      });
-
-      state.ua.on('registrationFailed', (e) => {
-        els.callSipStatus.textContent = 'Registration failed';
-        showToast('error', 'SIP registration failed: ' + (e.cause || 'unknown'));
-        setTimeout(() => showCallState('ended'), 2000);
-      });
-
-      state.ua.on('connected', () => {
-        console.log('[SIP] WebSocket connected');
-      });
-
-      state.ua.on('disconnected', () => {
-        console.log('[SIP] WebSocket disconnected');
-      });
-
-      state.ua.start();
-
-    } catch (e) {
-      console.error('[SIP] Init error:', e);
-      showToast('error', 'SIP initialization failed');
-      showCallState('ended');
-    }
-  }
-
-  function makeCall() {
-    const { sip_domain } = state.config;
-    const target = `sip:100@${sip_domain}`;
-
-    const options = {
-      mediaConstraints: { audio: true, video: false },
-      pcConfig: {
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-      }
-    };
-
-    const session = state.ua.call(target, options);
-    state.currentSession = session;
-
-    session.on('progress', () => {
-      els.callSipStatus.textContent = 'Ringing…';
-    });
-
-    session.on('confirmed', () => {
-      els.callSipStatus.textContent = 'Connected';
-      showCallState('active');
-      startCallTimer();
-    });
-
-    session.on('ended', () => {
-      endCall();
-    });
-
-    session.on('failed', (e) => {
-      console.error('[SIP] Call failed:', e.cause);
-      showToast('error', 'Call failed: ' + (e.cause || 'unknown'));
-      endCall();
-    });
-
-    session.on('peerconnection', (e) => {
-      const pc = e.peerconnection;
-      pc.ontrack = (event) => {
-        if (event.track.kind === 'audio') {
-          const stream = new MediaStream([event.track]);
-          els.remoteAudio.srcObject = stream;
-          els.remoteAudio.play().catch(() => {});
-        }
-      };
-    });
-  }
-
-  // Call State UI
-  function showCallState(stateStr) {
-    els.callDialing.classList.add('hidden');
-    els.callActive.classList.add('hidden');
-    els.callEnded.classList.add('hidden');
-
-    switch (stateStr) {
-      case 'dialing':
-        els.callDialing.classList.remove('hidden');
-        break;
-      case 'active':
-        els.callActive.classList.remove('hidden');
-        break;
-      case 'ended':
-        els.callEnded.classList.remove('hidden');
-        const m = Math.floor(state.callSeconds / 60).toString().padStart(2, '0');
-        const s = (state.callSeconds % 60).toString().padStart(2, '0');
-        els.callDurationFinal.textContent = `Duration: ${m}:${s}`;
-        break;
-    }
-  }
-
-  function endCall() {
-    state.currentSession = null;
-    state.isMuted = false;
-    stopCallTimer();
-    showCallState('ended');
-    els.callSipStatus.textContent = 'Call ended';
-
-    if (els.remoteAudio.srcObject) {
-      els.remoteAudio.srcObject = null;
-    }
-
-    if (state.ua) {
-      try { state.ua.stop(); } catch (e) {}
-      state.ua = null;
-    }
-  }
-
-  // Call Controls
-  els.btnCancelCall.addEventListener('click', () => {
-    if (state.currentSession) {
-      try { state.currentSession.terminate(); } catch (e) {}
-    }
-    endCall();
-  });
-
-  els.btnCallHangup.addEventListener('click', () => {
-    if (state.currentSession) {
-      try { state.currentSession.terminate(); } catch (e) {}
-    }
-    endCall();
-  });
-
-  els.btnCallMute.addEventListener('click', () => {
-    if (!state.currentSession) return;
-    state.isMuted = !state.isMuted;
-
-    if (state.isMuted) {
-      state.currentSession.mute({ audio: true });
-    } else {
-      state.currentSession.unmute({ audio: true });
-    }
-
-    els.btnCallMute.classList.toggle('muted', state.isMuted);
-    els.btnCallMute.querySelector('.material-icons-round').textContent = state.isMuted ? 'mic_off' : 'mic';
-    els.btnCallMute.querySelector('.action-label').textContent = state.isMuted ? 'Unmute' : 'Mute';
-  });
-
-  els.btnCallBack.addEventListener('click', () => {
-    if (state.currentSession) {
-      try { state.currentSession.terminate(); } catch (e) {}
-    }
-    endCall();
-    showScreen('screen-home');
-  });
-
-  els.btnCallRetry.addEventListener('click', () => {
-    state.callSeconds = 0;
-    showCallState('dialing');
-    initSIPAndCall();
-  });
-
-  els.btnCallHome.addEventListener('click', () => {
-    showScreen('screen-home');
-  });
-
-  // Call Timer
-  function startCallTimer() {
-    state.callSeconds = 0;
-    els.callTimerEl.textContent = '00:00';
-    state.callTimer = setInterval(() => {
-      state.callSeconds++;
-      const m = Math.floor(state.callSeconds / 60).toString().padStart(2, '0');
-      const s = (state.callSeconds % 60).toString().padStart(2, '0');
-      els.callTimerEl.textContent = `${m}:${s}`;
-    }, 1000);
-  }
-
-  function stopCallTimer() {
-    if (state.callTimer) {
-      clearInterval(state.callTimer);
-      state.callTimer = null;
-    }
-  }
-
   // ---------- Connection Status ----------
   function updateHomeConnection(connected) {
-    els.homeConnection.className = `status-pill ${connected ? 'connected' : 'disconnected'}`;
-    els.homeConnection.querySelector('span:last-child').textContent = connected ? 'Connected to Support' : 'Connecting…';
+    if (els.homeConnection) {
+        els.homeConnection.className = `status-pill ${connected ? 'connected' : 'disconnected'}`;
+        els.homeConnection.querySelector('span:last-child').textContent = connected ? 'Connected to Support' : 'Connecting…';
+    }
   }
 
   function updateChatConnection(connected) {
-    els.chatConnectionDot.className = `status-dot-sm ${connected ? 'connected' : 'disconnected'}`;
-    if (connected && !state.requestId) {
-      els.chatStatus.textContent = 'Connected — Type your message below';
+    if (els.chatConnectionDot) {
+        els.chatConnectionDot.className = `status-dot-sm ${connected ? 'connected' : 'disconnected'}`;
+        if (connected && !state.requestId) {
+          els.chatStatus.textContent = 'Connected — Type your message below';
+        }
     }
   }
 
