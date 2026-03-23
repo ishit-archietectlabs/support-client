@@ -5,6 +5,6 @@ set -e
 # Support Client — Entrypoint (Strict Supervisor-Free)
 # ============================================================
 
-bashio::log.info "Starting Support Client (v1.1.1) - Native Node Mode"
+bashio::log.info "Starting Support Client (v1.2.0) - Manual SIP Mode"
 cd /app
 exec node server.js

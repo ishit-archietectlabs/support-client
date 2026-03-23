@@ -9,15 +9,14 @@ const path = require('path');
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Provide runtime config from HA options (env vars)
+// Provide manual config (Supervisor-free)
 app.get('/api/config', (req, res) => {
+  console.log("Using manual config");
   res.json({
-    central_url: process.env.CENTRAL_URL || 'http://localhost:3000',
-    site_name: process.env.SITE_NAME || 'Remote Site',
-    sip_extension: process.env.SIP_EXTENSION || 'client_1',
-    sip_password: process.env.SIP_PASSWORD || 'changeme_client',
-    asterisk_ws_url: process.env.ASTERISK_WS_URL || 'wss://localhost:8089/ws',
-    sip_domain: process.env.SIP_DOMAIN || 'localhost'
+    asterisk_ws_url: "ws://192.168.1.104:8088/ws",
+    sip_username: "site1",
+    sip_password: "site123",
+    sip_domain: "192.168.1.104"
   });
 });
 
