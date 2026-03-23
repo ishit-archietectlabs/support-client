@@ -8,6 +8,17 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
+// --- Process Stability ---
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught Exception:', err.message);
+  console.error(err.stack);
+  // Keep process alive
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const app = express();
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
