@@ -48,52 +48,54 @@
 
   // ---------- Initialize ----------
   async function init() {
-    try {
-      const res = await fetch('/api/config');
-      state.config = await res.json();
-      els.siteNameLabel.textContent = state.config.site_name || 'Remote Site';
-      
-      // Align with support-central: Fetch SIP config from Asterisk/Central API
-      fetchSIPConfig();
-    } catch (e) {
-      console.error('Failed to load config:', e);
-    }
+    console.log('Starting initialization...');
+    fetchSIPConfig(); // Direct to SIP discovery
   }
 
   async function fetchSIPConfig() {
+    const ASTERISK_IP = '192.168.1.104';
+    const API_PORT = '8090';
+    
     try {
-      // Find the correct endpoint (e.g., site1 or client_1)
-      // Logic: Central server usually provides /api/endpoints
-      // We assume the central server is at state.config.central_url or same host port 8090
-      const asteriskUrl = state.config.asterisk_ws_url 
-        ? new URL(state.config.asterisk_ws_url).hostname 
-        : window.location.hostname;
+      console.log(`Fetching config from http://${ASTERISK_IP}:${API_PORT}/api/endpoints...`);
+      const res = await fetch(`http://${ASTERISK_IP}:${API_PORT}/api/endpoints`);
       
-      const res = await fetch(`http://${asteriskUrl}:8090/api/endpoints`);
-      if (!res.ok) throw new Error('Forbidden or API unreachable');
+      if (!res.ok) {
+        throw new Error(`API Error: ${res.status}`);
+      }
       
       const endpoints = await res.json();
-      const myExtension = state.config.sip_extension || 'client_1';
+      // Find the correct client (e.g., username = "site1")
+      // For this implementation, we look for 'site1' as requested
+      const myConfig = endpoints.find(e => e.username === 'site1');
       
-      const myConfig = endpoints.find(e => e.username === myExtension);
       if (!myConfig) {
-        showToast('error', `Endpoint '${myExtension}' not found in Asterisk config.`);
-        return;
+        showToast('error', 'Endpoint "site1" not found in server configuration.');
+        throw new Error('Endpoint not found');
       }
       
       state.sipConfig = myConfig;
-      initSIP(myConfig, asteriskUrl);
+      console.log('config loaded');
+      
+      initSIP(myConfig, ASTERISK_IP);
     } catch (e) {
-      console.error('SIP Discovery failed:', e);
-      showToast('error', 'Unable to access SIP API: ' + e.message);
+      console.error('Configuration Failed:', e.message);
+      showToast('error', 'Configuration Failed: ' + e.message);
+      // Ensure UI reflects the failure
+      els.siteNameLabel.textContent = 'Configuration Error';
     }
   }
 
   function initSIP(sip, host) {
-    if (!sip.username || !sip.password) return;
+    if (!sip.username || !sip.password) {
+        console.error('Incomplete SIP credentials');
+        return;
+    }
 
-    console.log(`Initializing SIP for ${sip.username}...`);
-    const socketInterface = new JsSIP.WebSocketInterface(`ws://${host}:8088/ws`);
+    const wsUrl = `ws://${host}:8088/ws`;
+    console.log(`Initializing JsSIP for ${sip.username} at ${wsUrl}`);
+    
+    const socketInterface = new JsSIP.WebSocketInterface(wsUrl);
     
     state.ua = new JsSIP.UA({
       sockets: [socketInterface],
@@ -104,12 +106,12 @@
     });
 
     state.ua.on('registered', () => {
-        console.log('JsSIP: SIP Registered');
+        console.log('SIP initialized');
         updateChatConnection(true);
     });
     
     state.ua.on('registrationFailed', (e) => {
-        console.error('JsSIP: Registration failed:', e.cause);
+        console.error('JsSIP Registration failed:', e.cause);
     });
 
     state.ua.start();
