@@ -49,35 +49,34 @@
   // ---------- Initialize ----------
   async function init() {
     try {
-      console.log('Using manual config');
       const res = await fetch('/api/config');
       state.config = await res.json();
       
-      els.siteNameLabel.textContent = state.config.site_name || 'site1';
+      els.siteNameLabel.textContent = state.config.site_name || 'Client Site';
       
-      console.log(`Initializing SIP for ${state.config.sip_username}`);
+      console.log(`Initializing SIP for ${state.config.sip_extension}`);
       initSIP(state.config);
     } catch (e) {
-      console.error('Failed to load manual config:', e);
+      console.error('Failed to load config:', e);
       showToast('error', 'Configuration Error: ' + e.message);
     }
   }
 
   function initSIP(config) {
-    if (!config.sip_username || !config.sip_password) {
-        console.error('Incomplete manual credentials');
+    if (!config.sip_extension || !config.sip_password) {
+        console.error('Incomplete credentials');
         return;
     }
 
     const host = config.sip_domain || '192.168.1.104';
     const wsUrl = config.asterisk_ws_url || `ws://${host}:8088/ws`;
     
-    console.log(`SIP registration started at ${wsUrl}`);
+    console.log(`SIP registration started for ${config.sip_extension} at ${wsUrl}`);
     const socketInterface = new JsSIP.WebSocketInterface(wsUrl);
     
     state.ua = new JsSIP.UA({
       sockets: [socketInterface],
-      uri: `sip:${config.sip_username}@${host}`,
+      uri: `sip:${config.sip_extension}@${host}`,
       password: config.sip_password,
       register: true,
       session_timers: false

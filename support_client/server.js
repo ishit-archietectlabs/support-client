@@ -3,21 +3,26 @@
 // Simple Express server that serves the client UI and config
 // =============================================================
 
-const express = require('express');
-const path = require('path');
+const fs = require('fs');
 
-const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Provide manual config (Supervisor-free)
+// Provide config from local options.json (Supervisor UI writes to this file)
 app.get('/api/config', (req, res) => {
-  console.log("Using manual config");
-  res.json({
-    asterisk_ws_url: "ws://192.168.1.104:8088/ws",
-    sip_username: "site1",
-    sip_password: "site123",
-    sip_domain: "192.168.1.104"
-  });
+  try {
+    const data = fs.readFileSync('/data/options.json', 'utf8');
+    const options = JSON.parse(data);
+    console.log("Loaded config from options");
+    res.json(options);
+  } catch (e) {
+    console.error("Config file not found or invalid. Using defaults.", e.message);
+    res.json({
+        central_url: "http://homeassistant.local:3000",
+        site_name: "Client Site",
+        sip_extension: "site1",
+        sip_password: "site123",
+        asterisk_ws_url: "ws://192.168.1.104:8088/ws",
+        sip_domain: "192.168.1.104"
+    });
+  }
 });
 
 const PORT = process.env.PORT || 3001;

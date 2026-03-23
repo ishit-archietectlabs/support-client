@@ -1,6 +1,6 @@
 {
   "name": "Support Client",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "slug": "support_client",
   "description": "Customer support request panel — text and call support buttons for remote HA sites",
   "url": "https://github.com/ishit-archietectlabs/support-client",
@@ -17,6 +17,22 @@
   "ingress_port": 3001,
   "panel_icon": "mdi:lifebuoy",
   "panel_title": "Get Support",
+  "options": {
+    "central_url": "http://homeassistant.local:3000",
+    "site_name": "Remote Site 1",
+    "sip_extension": "site1",
+    "sip_password": "site123",
+    "asterisk_ws_url": "ws://192.168.1.104:8088/ws",
+    "sip_domain": "192.168.1.104"
+  },
+  "schema": {
+    "central_url": "str",
+    "site_name": "str",
+    "sip_extension": "str",
+    "sip_password": "str",
+    "asterisk_ws_url": "str",
+    "sip_domain": "str"
+  },
   "ports": {
     "3001/tcp": null
   },
