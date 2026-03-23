@@ -49,39 +49,45 @@
   // ---------- Initialize ----------
   async function init() {
     try {
+      console.log("Fetching config...");
       const res = await fetch('/api/config');
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+      
       state.config = await res.json();
+      console.log("Config loaded:", state.config);
       
       els.siteNameLabel.textContent = state.config.site_name || 'Client Site';
       
-      console.log(`Initializing SIP for ${state.config.sip_extension}`);
       initSIP(state.config);
     } catch (e) {
-      console.error('Failed to load config:', e);
+      console.error('Fetching config failed:', e);
       showToast('error', 'Configuration Error: ' + e.message);
+      if (els.siteNameLabel) els.siteNameLabel.textContent = 'Config Error';
     }
   }
 
   function initSIP(config) {
-    if (!config.sip_extension || !config.sip_password) {
-        console.error('Incomplete credentials');
+    const { sip_extension, sip_password, asterisk_ws_url, sip_domain } = config;
+
+    if (!sip_extension || !sip_password || !asterisk_ws_url || !sip_domain) {
+        console.error('Incomplete SIP configuration:', config);
+        showToast('error', 'Incomplete SIP configuration in Options.');
         return;
     }
 
-    const host = config.sip_domain || '192.168.1.104';
-    const wsUrl = config.asterisk_ws_url || `ws://${host}:8088/ws`;
+    console.log("Initializing SIP...");
+    const socket = new JsSIP.WebSocketInterface(asterisk_ws_url);
     
-    console.log(`SIP registration started for ${config.sip_extension} at ${wsUrl}`);
-    const socketInterface = new JsSIP.WebSocketInterface(wsUrl);
-    
-    state.ua = new JsSIP.UA({
-      sockets: [socketInterface],
-      uri: `sip:${config.sip_extension}@${host}`,
-      password: config.sip_password,
+    const configuration = {
+      sockets: [socket],
+      uri: `sip:${sip_extension}@${sip_domain}`,
+      password: sip_password,
       register: true,
       session_timers: false
-    });
+    };
 
+    state.ua = new JsSIP.UA(configuration);
+    
     state.ua.on('registered', () => {
         console.log('SIP initialized');
         updateChatConnection(true);
@@ -89,8 +95,10 @@
     
     state.ua.on('registrationFailed', (e) => {
         console.error('JsSIP Registration failed:', e.cause);
+        showToast('error', 'SIP Registration Failed: ' + e.cause);
     });
 
+    console.log("SIP registration started");
     state.ua.start();
   }
 
