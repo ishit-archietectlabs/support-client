@@ -3,7 +3,12 @@
 // Simple Express server that serves the client UI and config
 // =============================================================
 
+const express = require('express');
+const path = require('path');
 const fs = require('fs');
+
+const app = express();
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Provide config from local options.json (Supervisor UI writes to this file)
 app.get('/api/config', (req, res) => {
