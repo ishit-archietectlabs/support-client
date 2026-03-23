@@ -49,8 +49,8 @@
   // ---------- Initialize ----------
   async function init() {
     try {
-      console.log("Fetching config...");
-      const res = await fetch('/api/config');
+      console.log("Fetching config from backend...");
+      const res = await fetch('http://192.168.1.104:3001/api/config');
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       
       state.config = await res.json();
