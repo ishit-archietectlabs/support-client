@@ -10,7 +10,9 @@
   const state = {
     config: {},
     socket: null,
-    requestId: null
+    requestId: null,
+    ua: null, // JsSIP User Agent
+    sipConfig: null
   };
 
   // ---------- DOM ----------
@@ -50,9 +52,67 @@
       const res = await fetch('/api/config');
       state.config = await res.json();
       els.siteNameLabel.textContent = state.config.site_name || 'Remote Site';
+      
+      // Align with support-central: Fetch SIP config from Asterisk/Central API
+      fetchSIPConfig();
     } catch (e) {
       console.error('Failed to load config:', e);
     }
+  }
+
+  async function fetchSIPConfig() {
+    try {
+      // Find the correct endpoint (e.g., site1 or client_1)
+      // Logic: Central server usually provides /api/endpoints
+      // We assume the central server is at state.config.central_url or same host port 8090
+      const asteriskUrl = state.config.asterisk_ws_url 
+        ? new URL(state.config.asterisk_ws_url).hostname 
+        : window.location.hostname;
+      
+      const res = await fetch(`http://${asteriskUrl}:8090/api/endpoints`);
+      if (!res.ok) throw new Error('Forbidden or API unreachable');
+      
+      const endpoints = await res.json();
+      const myExtension = state.config.sip_extension || 'client_1';
+      
+      const myConfig = endpoints.find(e => e.username === myExtension);
+      if (!myConfig) {
+        showToast('error', `Endpoint '${myExtension}' not found in Asterisk config.`);
+        return;
+      }
+      
+      state.sipConfig = myConfig;
+      initSIP(myConfig, asteriskUrl);
+    } catch (e) {
+      console.error('SIP Discovery failed:', e);
+      showToast('error', 'Unable to access SIP API: ' + e.message);
+    }
+  }
+
+  function initSIP(sip, host) {
+    if (!sip.username || !sip.password) return;
+
+    console.log(`Initializing SIP for ${sip.username}...`);
+    const socketInterface = new JsSIP.WebSocketInterface(`ws://${host}:8088/ws`);
+    
+    state.ua = new JsSIP.UA({
+      sockets: [socketInterface],
+      uri: `sip:${sip.username}@${host}`,
+      password: sip.password,
+      register: true,
+      session_timers: false
+    });
+
+    state.ua.on('registered', () => {
+        console.log('JsSIP: SIP Registered');
+        updateChatConnection(true);
+    });
+    
+    state.ua.on('registrationFailed', (e) => {
+        console.error('JsSIP: Registration failed:', e.cause);
+    });
+
+    state.ua.start();
   }
 
   // ---------- Socket.IO Connection to Central ----------

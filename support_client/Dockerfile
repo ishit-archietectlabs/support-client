@@ -9,8 +9,6 @@ RUN apt-get update \
         bash \
         jq \
         curl \
-        python3 \
-        python3-requests \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,7 +21,6 @@ RUN if [ -f package.json ]; then npm install --production; fi
 # Copy application
 COPY server.js ./
 COPY jssip-entry.js ./
-COPY options_handler.py ./
 COPY public/ ./public/
 
 # Copy run script
