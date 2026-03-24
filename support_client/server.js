@@ -44,6 +44,19 @@ app.get('/api/config', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[CLIENT] Support Client running on port ${PORT}`);
-});
+
+try {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[CLIENT] Support Client successfully listening on port ${PORT}`);
+    console.log(`[CLIENT] Access at http://<addon-ip>:${PORT}`);
+  });
+
+  server.on('error', (err) => {
+    console.error('[CRITICAL] Server failed to start:', err.message);
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use.`);
+    }
+  });
+} catch (e) {
+  console.error('[CRITICAL] Fatal error during app.listen:', e.message);
+}
