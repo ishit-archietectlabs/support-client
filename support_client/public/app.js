@@ -1,6 +1,6 @@
 // =============================================================
 // Support Client — Client App
-// Text chat via Socket.IO
+// Purged Socket.IO — Pure JsSIP WebRTC (v1.2.8)
 // =============================================================
 
 (function () {
@@ -9,10 +9,7 @@
   // ---------- State ----------
   const state = {
     config: {},
-    socket: null,
-    requestId: null,
     ua: null, // JsSIP User Agent
-    sipConfig: null
   };
 
   // ---------- DOM ----------
@@ -48,174 +45,100 @@
 
   // ---------- Initialize ----------
   async function init() {
-    try {
-      console.log("Fetching config from backend...");
-      const res = await fetch('http://192.168.1.104:3001/api/config');
-      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-      
-      state.config = await res.json();
-      console.log("Config loaded:", state.config);
-      
-      els.siteNameLabel.textContent = state.config.site_name || 'Client Site';
-      
-      initSIP(state.config);
-    } catch (e) {
-      console.error('Fetching config failed:', e);
-      showToast('error', 'Configuration Error: ' + e.message);
-      if (els.siteNameLabel) els.siteNameLabel.textContent = 'Config Error';
-    }
+    console.log("Initializing Support Client v1.2.8...");
+    
+    // Set static UI labels
+    if (els.siteNameLabel) els.siteNameLabel.textContent = 'Remote Site (site1)';
+    
+    // Explicit Hardcoded SIP Initialization per requirements
+    initSIP();
   }
 
-  function initSIP(config) {
-    const { sip_extension, sip_password, asterisk_ws_url, sip_domain } = config;
-
-    if (!sip_extension || !sip_password || !asterisk_ws_url || !sip_domain) {
-        console.error('Incomplete SIP configuration:', config);
-        showToast('error', 'Incomplete SIP configuration in Options.');
-        return;
-    }
+  function initSIP() {
+    const WSS_URL = 'wss://j788dlew.niti.life:8089/ws';
+    const SIP_URI = 'sip:site1@j788dlew.niti.life';
+    const SIP_PWD = 'site123';
 
     console.log("Initializing SIP...");
-    const socket = new JsSIP.WebSocketInterface(asterisk_ws_url);
-    
-    const configuration = {
-      sockets: [socket],
-      uri: `sip:${sip_extension}@${sip_domain}`,
-      password: sip_password,
-      register: true,
-      session_timers: false
-    };
+    console.log("WebSocket URL:", WSS_URL);
+    console.log("SIP URI:", SIP_URI);
 
-    state.ua = new JsSIP.UA(configuration);
-    
-    state.ua.on('registered', () => {
-        console.log('SIP initialized');
-        updateChatConnection(true);
-    });
-    
-    state.ua.on('registrationFailed', (e) => {
-        console.error('JsSIP Registration failed:', e.cause);
-        showToast('error', 'SIP Registration Failed: ' + e.cause);
-    });
+    try {
+      const socket = new JsSIP.WebSocketInterface(WSS_URL);
+      
+      const configuration = {
+        sockets: [socket],
+        uri: SIP_URI,
+        password: SIP_PWD,
+        register: true,
+        session_timers: false
+      };
 
-    console.log("SIP registration started");
-    state.ua.start();
-  }
-
-  // ---------- Socket.IO Connection to Central ----------
-  function connectSocket(callback) {
-    if (state.socket && state.socket.connected) {
-      if (callback) callback();
-      return;
-    }
-
-    const centralUrl = state.config.central_url || 'http://localhost:3000';
-
-    state.socket = io(centralUrl, {
-      transports: ['websocket', 'polling'],
-      reconnection: true
-    });
-
-    state.socket.on('connect', () => {
-      updateHomeConnection(true);
-      updateChatConnection(true);
-
-      state.socket.emit('identify', {
-        role: 'client',
-        site_name: state.config.site_name
+      state.ua = new JsSIP.UA(configuration);
+      
+      state.ua.on('registered', () => {
+          console.log('SIP initialized');
+          console.log('SIP registration started');
+          updateHomeConnection(true);
+          updateChatConnection(true);
+          showToast('success', 'Connected to Asterisk');
+      });
+      
+      state.ua.on('registrationFailed', (e) => {
+          console.error('JsSIP Registration failed:', e.cause);
+          showToast('error', 'SIP Registration Failed: ' + e.cause);
+          updateHomeConnection(false);
+          updateChatConnection(false);
       });
 
-      if (callback) callback();
-    });
+      state.ua.on('unregistered', () => {
+          console.log('SIP unregistered');
+          updateHomeConnection(false);
+          updateChatConnection(false);
+      });
 
-    state.socket.on('disconnect', () => {
-      updateHomeConnection(false);
-      updateChatConnection(false);
-    });
-
-    state.socket.on('chat-message', (data) => {
-      if (data.request_id === state.requestId && data.sender !== 'client') {
-        appendChatMessage(data);
-      }
-    });
+      state.ua.start();
+    } catch (e) {
+      console.error('JsSIP Initialization failed:', e.message);
+      showToast('error', 'SIP Init Error: ' + e.message);
+    }
   }
 
-  // ---------- TEXT SUPPORT ----------
+  // ---------- Chat UI Logic (Static/Placeholder since Socket.IO is removed) ----------
   els.btnTextSupport.addEventListener('click', () => {
     showScreen('screen-chat');
-    connectSocket();
+    updateChatConnection(state.ua && state.ua.isRegistered());
   });
 
   els.btnChatBack.addEventListener('click', () => {
     showScreen('screen-home');
   });
 
-  // Send initial message & create request
   els.btnSendInitial.addEventListener('click', async () => {
     const message = els.initialMessage.value.trim();
-    if (!message) {
-      els.initialMessage.focus();
-      return;
-    }
-
-    els.btnSendInitial.disabled = true;
-    els.btnSendInitial.innerHTML = '<span class="material-icons-round">hourglass_empty</span> Sending…';
-
-    try {
-      const centralUrl = state.config.central_url || 'http://localhost:3000';
-      const res = await fetch(`${centralUrl}/api/request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          site_name: state.config.site_name,
-          type: 'text',
-          message: message
-        })
-      });
-
-      const data = await res.json();
-      state.requestId = data.request_id;
-
-      if (state.socket) {
-        state.socket.emit('join-request', state.requestId);
-      }
-
-      els.initialMessageArea.classList.add('hidden');
-      els.chatInputArea.classList.remove('hidden');
-      els.chatStatus.textContent = 'Connected — Waiting for agent';
-
-      appendChatMessage({
-        sender: 'client',
-        site_name: state.config.site_name,
-        text: message,
-        timestamp: new Date().toISOString()
-      });
-
-      showToast('success', 'Message sent! Waiting for support agent.');
-
-    } catch (e) {
-      console.error('Failed to send request:', e);
-      showToast('error', 'Failed to connect. Please try again.');
-      els.btnSendInitial.disabled = false;
-      els.btnSendInitial.innerHTML = '<span class="material-icons-round">send</span> Send & Connect';
-    }
+    if (!message) return;
+    
+    // Placeholder logic for SIP message or just UI feedback
+    appendChatMessage({
+      sender: 'client',
+      text: message,
+      timestamp: new Date().toISOString()
+    });
+    
+    els.initialMessage.value = '';
+    els.initialMessageArea.classList.add('hidden');
+    els.chatInputArea.classList.remove('hidden');
+    els.chatStatus.textContent = 'SIP Mode Active';
+    
+    showToast('info', 'Message UI updated (SIP Mode)');
   });
 
-  // Send follow-up chat messages
   function sendChatMessage() {
     const text = els.chatInput.value.trim();
-    if (!text || !state.requestId || !state.socket) return;
-
-    state.socket.emit('chat-message', {
-      request_id: state.requestId,
-      text,
-      sender: 'client',
-      site_name: state.config.site_name
-    });
+    if (!text) return;
 
     appendChatMessage({
       sender: 'client',
-      site_name: state.config.site_name,
       text,
       timestamp: new Date().toISOString()
     });
@@ -240,20 +163,18 @@
     els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
   }
 
-  // ---------- Connection Status ----------
+  // ---------- Connection Status UI ----------
   function updateHomeConnection(connected) {
     if (els.homeConnection) {
         els.homeConnection.className = `status-pill ${connected ? 'connected' : 'disconnected'}`;
-        els.homeConnection.querySelector('span:last-child').textContent = connected ? 'Connected to Support' : 'Connecting…';
+        els.homeConnection.querySelector('span:last-child').textContent = connected ? 'Ready for Support' : 'SIP Disconnected';
     }
   }
 
   function updateChatConnection(connected) {
     if (els.chatConnectionDot) {
         els.chatConnectionDot.className = `status-dot-sm ${connected ? 'connected' : 'disconnected'}`;
-        if (connected && !state.requestId) {
-          els.chatStatus.textContent = 'Connected — Type your message below';
-        }
+        els.chatStatus.textContent = connected ? 'Connected via SIP' : 'SIP Offline';
     }
   }
 
